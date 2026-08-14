@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KÄRCHER Overdue PO Alert</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <style>
+    :root{
+      --yellow:#FFD800;
+      --black:#111111;
+      --bg:#f5f5f5;
+      --white:#ffffff;
+      --red:#d32f2f;
+      --orange:#ef6c00;
+      --green:#2e7d32;
+      --blue:#1565c0;
+      --gray:#777;
+      --line:#ddd;
+      --shadow:0 2px 10px rgba(0,0,0,.08);
+    }
+
+    *{box-sizing:border-box}
+
+    body{
+      margin:0;
+      font-family:Arial,Helvetica,sans-serif;
+      background:var(--bg);
+      color:var(--black);
+    }
+
+    .page{
+      width:min(1500px,96%);
+      margin:24px auto 60px;
+    }
+
+    .hero{
+      background:var(--black);
+      border-bottom:10px solid var(--yellow);
+      border-radius:14px;
+      padding:25px 28px;
+      margin-bottom:22px;
+    }
+
+    .brand{
+      color:var(--yellow);
+      font-size:44px;
+      font-weight:900;
+      letter-spacing:1px;
+    }
+
+    .subtitle{
+      color:white;
+      margin-top:5px;
+      font-size:18px;
+    }
+
+    .card{
+      background:white;
+      border-radius:14px;
+      padding:22px;
+      margin:18px 0;
+      box-shadow:var(--shadow);
+    }
+
+    .step{
+      display:inline-block;
+      background:var(--yellow);
+      font-size:12px;
+      font-weight:900;
+      border-radius:999px;
+      padding:6px 10px;
+      margin-bottom:8px;
+    }
+
+    h2,h3{margin:4px 0 14px}
+
+    .muted{color:var(--gray)}
+
+    .upload-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:16px;
+    }
+
+    .upload-box{
+      border:2px dashed var(--yellow);
+      border-radius:12px;
+      padding:20px;
+      background:#fff;
+    }
+
+    .upload-box strong{
+      display:block;
+      margin-bottom:10px;
+    }
+
+    input[type=file],
+    input[type=text],
+    select{
+      width:100%;
+      padding:10px;
+      border:1px solid #bbb;
+      border-radius:8px;
+      background:#fff;
+    }
+
+    button{
+      display:inline-block;
+      background:var(--yellow);
+      color:var(--black);
+      border:none;
+      border-radius:9px;
+      padding:12px 18px;
+      font-weight:900;
+      cursor:pointer;
+    }
+
+    button:hover{filter:brightness(.96)}
+
+    .toolbar{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+    }
+
+    .metric-grid{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:12px;
+    }
+
+    .metric{
+      border-radius:12px;
+      padding:16px;
+      background:#fafafa;
+      border:1px solid #eee;
+    }
+
+    .metric span{
+      display:block;
+      color:#666;
+      font-size:13px;
+      font-weight:700;
+    }
+
+    .metric strong{
+      display:block;
+      font-size:30px;
+      margin-top:5px;
+    }
+
+    .alert{
+      border-radius:10px;
+      padding:13px 15px;
+      font-weight:700;
+      margin:12px 0;
+    }
+
+    .error{
+      background:#fde1e1;
+      border-left:5px solid var(--red);
+    }
+
+    .success{
+      background:#e3f3e5;
+      border-left:5px solid var(--green);
+    }
+
+    .warning{
+      background:#fff4cf;
+      border-left:5px solid #e6b800;
+    }
+
+    .table-wrap{
+      overflow:auto;
+      max-width:100%;
+      max-height:600px;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      white-space:nowrap;
+    }
+
+    th,td{
+      border:1px solid var(--line);
+      padding:9px 10px;
+      text-align:center;
+    }
+
+    thead th{
+      background:var(--black);
+      color:#fff;
+      position:sticky;
+      top:0;
+      z-index:2;
+    }
+
+    .status-overdue{background:#f4cccc;font-weight:800}
+    .status-today{background:#fce5cd;font-weight:800}
+    .status-ontime{background:#d9ead3;font-weight:800}
+    .status-delivered{background:#e7e6e6;font-weight:800}
+    .status-nodate{background:#d9eaf7;font-weight:800}
+
+    .priority-critical{color:#b71c1c;font-weight:900}
+    .priority-high{color:#e65100;font-weight:900}
+    .priority-medium{color:#8a6d00;font-weight:900}
+    .priority-low{color:#2e7d32;font-weight:900}
+
+    .hidden{display:none!important}
+
+    .tabs{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-bottom:14px;
+    }
+
+    .tab-btn{
+      background:#eee;
+      color:#111;
+    }
+
+    .tab-btn.active{
+      background:var(--yellow);
+    }
+
+    @media(max-width:900px){
+      .upload-grid,.metric-grid{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+<div class="page">
+
+  <header class="hero">
+    <div class="brand">KÄRCHER</div>
+    <div class="subtitle">Overdue PO Alert & Supplier Follow-Up Monitor</div>
+  </header>
+
+  <section class="card">
+    <div class="step">STEP 1</div>
+    <h2>Upload Files</h2>
+
+    <p class="muted">
+      File names do not matter. Select the SAP PO report and the supplier contact file.
+      Supported formats: XLSX, XLS and CSV.
+    </p>
+
+    <div class="upload-grid">
+      <div class="upload-box">
+        <strong>SAP PO Report</strong>
+        <input id="sapFile" type="file" accept=".xlsx,.xls,.csv" />
+      </div>
+
+      <div class="upload-box">
+        <strong>Supplier Contacts</strong>
+        <input id="contactsFile" type="file" accept=".xlsx,.xls,.csv" />
+      </div>
+    </div>
+
+    <div style="margin-top:16px">
+      <button id="generateBtn">⚡ Generate Overdue PO Analysis</button>
+    </div>
+
+    <div id="processMessage"></div>
+  </section>
+
+  <div id="resultsArea" class="hidden">
+
+    <section class="card">
+      <div class="toolbar">
+        <div>
+          <div class="step">GENERATED</div>
+          <h2 style="margin-bottom:4px">Overdue PO Monitor</h2>
+          <div id="analysisDate" class="muted"></div>
+        </div>
+
+        <button id="downloadBtn">⬇ Download Overdue_PO_Report.xlsx</button>
+      </div>
+
+      <div id="metrics" class="metric-grid" style="margin-top:18px"></div>
+    </section>
+
+    <section class="card">
+      <h2>Overdue Summary by Supplier</h2>
+      <div id="supplierSummary" class="table-wrap"></div>
+    </section>
+
+    <section class="card">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="monitorTab">PO Monitor</button>
+        <button class="tab-btn" data-tab="emailTab">Email Queue</button>
+      </div>
+
+      <div id="monitorTab">
+        <h2>PO Monitor</h2>
+        <div id="monitorTable" class="table-wrap"></div>
+      </div>
+
+      <div id="emailTab" class="hidden">
+        <h2>Email Queue</h2>
+        <div id="emailTable" class="table-wrap"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+let monitorRows = [];
+let overdueRows = [];
+let emailQueueRows = [];
+let supplierSummaryRows = [];
+let dashboardStats = {};
+
+
+/* =========================================================
+   GENERIC HELPERS
+   ========================================================= */
+
+function normalizeName(value){
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g," ");
+}
+
+function cleanText(value){
+  return String(value ?? "").trim();
+}
+
+function normalizeVendor(value){
+  if(value === null || value === undefined) return "";
+
+  let text = String(value).trim();
+  if(!text || ["nan","none"].includes(text.toLowerCase())) return "";
+
+  let vendor = text.split(/\s+/)[0];
+
+  if(vendor.endsWith(".0")){
+    vendor = vendor.slice(0,-2);
+  }
+
+  if(/^\d+$/.test(vendor)){
+    vendor = String(parseInt(vendor,10));
+  }
+
+  return vendor;
+}
+
+function extractVendorName(value){
+  const text = String(value ?? "").trim();
+  const parts = text.split(/\s+/);
+  if(parts.length < 2) return "";
+  return text.substring(text.indexOf(parts[1])).trim();
+}
+
+function cleanNumber(value){
+  if(value === null || value === undefined || value === "") return 0;
+
+  const cleaned = String(value)
+    .replace(/,/g,"")
+    .replace(/\$/g,"")
+    .trim();
+
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function safeDate(value){
+  if(!value && value !== 0) return null;
+
+  if(value instanceof Date && !isNaN(value)) return value;
+
+  if(typeof value === "number"){
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if(parsed){
+      return new Date(parsed.y, parsed.m - 1, parsed.d);
+    }
+  }
+
+  const text = String(value).trim();
+
+  const dmy = text.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(dmy){
+    return new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]));
+  }
+
+  const parsed = new Date(text);
+  return isNaN(parsed) ? null : parsed;
+}
+
+function normalizeDay(date){
+  if(!(date instanceof Date) || isNaN(date)) return null;
+  return new Date(date.getFullYear(),date.getMonth(),date.getDate());
+}
+
+function todayLocal(){
+  return normalizeDay(new Date());
+}
+
+function daysBetween(a,b){
+  if(!a || !b) return 0;
+  return Math.floor((a - b) / 86400000);
+}
+
+function formatDate(date){
+  if(!(date instanceof Date) || isNaN(date)) return "";
+  const dd = String(date.getDate()).padStart(2,"0");
+  const mm = String(date.getMonth()+1).padStart(2,"0");
+  const yyyy = date.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+function findColumn(rows, possibleNames, required=true){
+  if(!rows.length){
+    if(required) throw new Error("The uploaded file is empty.");
+    return null;
+  }
+
+  const normalized = {};
+  Object.keys(rows[0]).forEach(col => {
+    normalized[normalizeName(col)] = col;
+  });
+
+  for(const name of possibleNames){
+    const key = normalizeName(name);
+    if(key in normalized) return normalized[key];
+  }
+
+  if(required){
+    throw new Error(
+      `A required column was not found. Expected one of: ${possibleNames.join(", ")}`
+    );
+  }
+
+  return null;
+}
+
+function escapeHtml(value){
+  return String(value ?? "")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+}
+
+function readFileAsRows(file){
+  return new Promise((resolve,reject) => {
+    const reader = new FileReader();
+
+    reader.onload = e => {
+      try{
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data,{type:"array",cellDates:true});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws,{
+          defval:"",
+          raw:true
+        });
+
+        resolve(rows);
+      }catch(err){
+        reject(err);
+      }
+    };
+
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+
+/* =========================================================
+   STATUS / PRIORITY / NEXT ACTION
+   Same logic as Python version
+   ========================================================= */
+
+function classifyStatus(row){
+  const pending = row["Pending Qty"];
+  const deliveryDate = row["Delivery Date"];
+  const today = todayLocal();
+
+  if(pending <= 0){
+    return "⚪ DELIVERED";
+  }
+
+  if(!deliveryDate){
+    return "🔵 NO DELIVERY DATE";
+  }
+
+  if(deliveryDate < today){
+    return "🔴 OVERDUE";
+  }
+
+  if(deliveryDate.getTime() === today.getTime()){
+    return "🟡 DUE TODAY";
+  }
+
+  return "🟢 ON TIME";
+}
+
+function classifyPriority(row){
+  const status = row["Status"];
+  const days = row["Days Overdue"];
+
+  if(status === "🔴 OVERDUE"){
+    if(days > 30) return "CRITICAL";
+    if(days > 7) return "HIGH";
+    return "MEDIUM";
+  }
+
+  if(status === "🔵 NO DELIVERY DATE"){
+    return "HIGH";
+  }
+
+  if(status === "🟡 DUE TODAY"){
+    return "MEDIUM";
+  }
+
+  return "LOW";
+}
+
+function nextAction(row){
+  const status = row["Status"];
+  const days = row["Days Overdue"];
+  const pending = row["Pending Qty"];
+
+  if(status === "🔴 OVERDUE"){
+    if(days > 30 && pending <= 5){
+      return "Validate open balance / close PO";
+    }
+
+    if(days > 30){
+      return "Urgent supplier follow-up";
+    }
+
+    return "Request updated delivery date";
+  }
+
+  if(status === "🟡 DUE TODAY"){
+    return "Confirm delivery";
+  }
+
+  if(status === "🔵 NO DELIVERY DATE"){
+    return "Validate delivery date";
+  }
+
+  if(status === "🟢 ON TIME"){
+    return "Monitor";
+  }
+
+  return "No action";
+}
+
+
+/* =========================================================
+   CONTACTS
+   ========================================================= */
+
+function loadContacts(rows){
+  const vendorCol = findColumn(
+    rows,
+    ["Vendor","Vendor Number","Vendor/supplying plant"]
+  );
+
+  const contactNameCol = findColumn(
+    rows,
+    ["Contact","Contact Name","Supplier Contact"],
+    false
+  );
+
+  const emailCol = findColumn(
+    rows,
+    ["Email","Supplier Email","To Email"]
+  );
+
+  const ccCol = findColumn(
+    rows,
+    ["CC","CC Email","Buyer Email"],
+    false
+  );
+
+  const map = new Map();
+
+  rows.forEach(r => {
+    const key = normalizeVendor(r[vendorCol]);
+
+    if(!key) return;
+
+    map.set(key,{
+      "Vendor Key":key,
+      "Contact Name":contactNameCol ? cleanText(r[contactNameCol]) : "",
+      "Email":cleanText(r[emailCol]),
+      "CC":ccCol ? cleanText(r[ccCol]) : ""
+    });
+  });
+
+  return map;
+}
+
+
+/* =========================================================
+   MAIN ANALYSIS
+   ========================================================= */
+
+function buildAnalysis(sapRows, contactsMap){
+  const today = todayLocal();
+
+  const poCol = findColumn(sapRows,["Purchasing Document"]);
+  const itemCol = findColumn(sapRows,["Item"]);
+  const materialCol = findColumn(sapRows,["Material"]);
+  const shortTextCol = findColumn(sapRows,["Short Text"],false);
+  const orderQtyCol = findColumn(sapRows,["Order Quantity"]);
+  const pendingCol = findColumn(
+    sapRows,
+    [
+      "Still to be delivered (qty)",
+      "Still to be delivered",
+      "Still to be delivered qty"
+    ]
+  );
+  const deliveryCol = findColumn(sapRows,["Delivery Date"]);
+  const vendorCol = findColumn(
+    sapRows,
+    ["Vendor/supplying plant","Vendor"],
+    false
+  );
+  const commentsCol = findColumn(sapRows,["Comments"],false);
+
+  const netPriceCol = findColumn(
+    sapRows,
+    ["Net price","Net Price"],
+    false
+  );
+
+  const priceUnitCol = findColumn(
+    sapRows,
+    ["Price Unit","Price unit"],
+    false
+  );
+
+  const processed = sapRows.map(r => {
+    const orderQty = cleanNumber(r[orderQtyCol]);
+    const pendingQty = cleanNumber(r[pendingCol]);
+    const deliveryDate = normalizeDay(safeDate(r[deliveryCol]));
+
+    const deliveredQty = Math.max(orderQty - pendingQty,0);
+    const pendingPct = orderQty === 0 ? 0 : pendingQty / orderQty;
+
+    const daysOverdue =
+      deliveryDate
+        ? Math.max(daysBetween(today,deliveryDate),0)
+        : 0;
+
+    let openValue = 0;
+
+    if(netPriceCol && priceUnitCol){
+      const netPrice = cleanNumber(r[netPriceCol]);
+      const priceUnit = cleanNumber(r[priceUnitCol]) || 1;
+      openValue = pendingQty * netPrice / priceUnit;
+    }
+
+    const row = {
+      "__PO_COL__":poCol,
+      "__ITEM_COL__":itemCol,
+      "__MATERIAL_COL__":materialCol,
+      "__VENDOR_COL__":vendorCol,
+
+      "Purchasing Document":r[poCol],
+      "Item":r[itemCol],
+      "Material":r[materialCol],
+      "Short Text":shortTextCol ? r[shortTextCol] : "",
+      "Vendor/supplying plant":vendorCol ? r[vendorCol] : "",
+      "Order Quantity":orderQty,
+      "Delivered Qty":deliveredQty,
+      "Pending Qty":pendingQty,
+      "Pending %":pendingPct,
+      "Delivery Date":deliveryDate,
+      "Days Overdue":daysOverdue,
+      "Open Value":openValue,
+      "Comments":commentsCol ? r[commentsCol] : ""
+    };
+
+    row["Status"] = classifyStatus(row);
+    row["Priority"] = classifyPriority(row);
+    row["Next Action"] = nextAction(row);
+
+    // Preserve remaining original columns
+    Object.entries(r).forEach(([k,v]) => {
+      if(!(k in row)){
+        row[k] = v;
+      }
+    });
+
+    return row;
+  });
+
+  monitorRows = processed
+    .filter(r => r["Pending Qty"] > 0)
+    .sort((a,b) => {
+      const order = {
+        "CRITICAL":1,
+        "HIGH":2,
+        "MEDIUM":3,
+        "LOW":4
+      };
+
+      return (
+        (order[a.Priority] || 5) - (order[b.Priority] || 5) ||
+        b["Days Overdue"] - a["Days Overdue"] ||
+        String(a["Purchasing Document"]).localeCompare(
+          String(b["Purchasing Document"]),
+          undefined,
+          {numeric:true}
+        ) ||
+        String(a["Item"]).localeCompare(
+          String(b["Item"]),
+          undefined,
+          {numeric:true}
+        )
+      );
+    });
+
+  overdueRows = monitorRows.filter(
+    r => r["Status"] === "🔴 OVERDUE"
+  );
+
+  const uniqueOverduePos = new Set(
+    overdueRows.map(r => String(r["Purchasing Document"]))
+  ).size;
+
+  const pendingPieces = overdueRows.reduce(
+    (sum,r) => sum + Number(r["Pending Qty"] || 0),
+    0
+  );
+
+  const criticalLines = overdueRows.filter(
+    r => r["Priority"] === "CRITICAL"
+  ).length;
+
+  dashboardStats = {
+    overdueLines:overdueRows.length,
+    uniqueOverduePos,
+    pendingPieces,
+    criticalLines
+  };
+
+  // Supplier summary
+  const supplierMap = new Map();
+
+  if(vendorCol){
+    overdueRows.forEach(r => {
+      const vendorRaw = r["Vendor/supplying plant"];
+      const vendor = cleanText(vendorRaw);
+
+      if(!supplierMap.has(vendor)){
+        supplierMap.set(vendor,{
+          "Vendor":vendor,
+          "Overdue Lines":0,
+          "Unique POs":new Set(),
+          "Pending Qty":0
+        });
+      }
+
+      const x = supplierMap.get(vendor);
+      x["Overdue Lines"] += 1;
+      x["Unique POs"].add(String(r["Purchasing Document"]));
+      x["Pending Qty"] += Number(r["Pending Qty"] || 0);
+    });
+  }
+
+  supplierSummaryRows = [...supplierMap.values()]
+    .map(x => ({
+      "Vendor":x.Vendor,
+      "Overdue Lines":x["Overdue Lines"],
+      "Unique POs":x["Unique POs"].size,
+      "Pending Qty":x["Pending Qty"]
+    }))
+    .sort((a,b) => b["Pending Qty"] - a["Pending Qty"]);
+
+  // Email Queue
+  emailQueueRows = overdueRows.map(r => {
+    const vendorRaw = r["Vendor/supplying plant"];
+    const vendorKey = normalizeVendor(vendorRaw);
+    const vendorName = extractVendorName(vendorRaw);
+
+    const contact = contactsMap.get(vendorKey) || {
+      "Contact Name":"",
+      "Email":"",
+      "CC":""
+    };
+
+    const emailStatus =
+      cleanText(contact.Email)
+        ? "READY"
+        : "MISSING CONTACT";
+
+    return {
+      "Send?":"NO",
+      "Vendor":vendorKey,
+      "Vendor Name":vendorName,
+      "Contact Name":contact["Contact Name"],
+      "Email":contact.Email,
+      "CC":contact.CC,
+      "Purchasing Document":r["Purchasing Document"],
+      "Item":r["Item"],
+      "Material":r["Material"],
+      "Short Text":r["Short Text"],
+      "Order Quantity":r["Order Quantity"],
+      "Delivered Qty":r["Delivered Qty"],
+      "Pending Qty":r["Pending Qty"],
+      "Delivery Date":r["Delivery Date"],
+      "Days Overdue":r["Days Overdue"],
+      "Priority":r["Priority"],
+      "Next Action":r["Next Action"],
+      "Comments":r["Comments"],
+      "Email Status":emailStatus
+    };
+  })
+  .sort((a,b) =>
+    String(a.Vendor).localeCompare(String(b.Vendor),undefined,{numeric:true}) ||
+    ((a["Delivery Date"]?.getTime() || 0) - (b["Delivery Date"]?.getTime() || 0)) ||
+    String(a["Purchasing Document"]).localeCompare(
+      String(b["Purchasing Document"]),
+      undefined,
+      {numeric:true}
+    ) ||
+    String(a.Item).localeCompare(String(b.Item),undefined,{numeric:true})
+  );
+}
+
+
+/* =========================================================
+   RENDERING
+   ========================================================= */
+
+function renderMetrics(){
+  const metrics = [
+    ["Overdue Lines",dashboardStats.overdueLines],
+    ["Unique Overdue POs",dashboardStats.uniqueOverduePos],
+    ["Pending Pieces",Math.round(dashboardStats.pendingPieces).toLocaleString()],
+    ["Critical Lines",dashboardStats.criticalLines]
+  ];
+
+  document.getElementById("metrics").innerHTML =
+    metrics.map(([label,value]) => `
+      <div class="metric">
+        <span>${escapeHtml(label)}</span>
+        <strong>${escapeHtml(value)}</strong>
+      </div>
+    `).join("");
+}
+
+function statusClass(status){
+  if(status === "🔴 OVERDUE") return "status-overdue";
+  if(status === "🟡 DUE TODAY") return "status-today";
+  if(status === "🟢 ON TIME") return "status-ontime";
+  if(status === "⚪ DELIVERED") return "status-delivered";
+  if(status === "🔵 NO DELIVERY DATE") return "status-nodate";
+  return "";
+}
+
+function priorityClass(priority){
+  if(priority === "CRITICAL") return "priority-critical";
+  if(priority === "HIGH") return "priority-high";
+  if(priority === "MEDIUM") return "priority-medium";
+  if(priority === "LOW") return "priority-low";
+  return "";
+}
+
+function formatCell(header,value){
+  if(value instanceof Date){
+    return formatDate(value);
+  }
+
+  if(header === "Pending %"){
+    return `${(Number(value || 0) * 100).toFixed(1)}%`;
+  }
+
+  if([
+    "Order Quantity",
+    "Delivered Qty",
+    "Pending Qty",
+    "Open Value"
+  ].includes(header)){
+    return Number(value || 0).toLocaleString(undefined,{
+      maximumFractionDigits:2
+    });
+  }
+
+  return value ?? "";
+}
+
+function renderTable(targetId, rows, headers){
+  const el = document.getElementById(targetId);
+
+  if(!rows.length){
+    el.innerHTML = `
+      <div class="alert success">
+        No records found.
+      </div>
+    `;
+    return;
+  }
+
+  el.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          ${headers.map(h => `<th>${escapeHtml(h)}</th>`).join("")}
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r => `
+          <tr>
+            ${headers.map(h => {
+              const val = formatCell(h,r[h]);
+
+              let cls = "";
+
+              if(h === "Status"){
+                cls = statusClass(r[h]);
+              }
+
+              if(h === "Priority"){
+                cls = priorityClass(r[h]);
+              }
+
+              if(h === "Email Status"){
+                cls = r[h] === "READY"
+                  ? "status-ontime"
+                  : "status-overdue";
+              }
+
+              return `<td class="${cls}">${escapeHtml(val)}</td>`;
+            }).join("")}
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderAll(){
+  renderMetrics();
+
+  document.getElementById("analysisDate").textContent =
+    `Analysis Date: ${formatDate(todayLocal())}`;
+
+  renderTable(
+    "supplierSummary",
+    supplierSummaryRows,
+    ["Vendor","Overdue Lines","Unique POs","Pending Qty"]
+  );
+
+  renderTable(
+    "monitorTable",
+    monitorRows,
+    [
+      "Purchasing Document",
+      "Item",
+      "Material",
+      "Short Text",
+      "Vendor/supplying plant",
+      "Order Quantity",
+      "Delivered Qty",
+      "Pending Qty",
+      "Pending %",
+      "Delivery Date",
+      "Days Overdue",
+      "Status",
+      "Priority",
+      "Open Value",
+      "Next Action",
+      "Comments"
+    ]
+  );
+
+  renderTable(
+    "emailTable",
+    emailQueueRows,
+    [
+      "Send?",
+      "Vendor",
+      "Vendor Name",
+      "Contact Name",
+      "Email",
+      "CC",
+      "Purchasing Document",
+      "Item",
+      "Material",
+      "Short Text",
+      "Order Quantity",
+      "Delivered Qty",
+      "Pending Qty",
+      "Delivery Date",
+      "Days Overdue",
+      "Priority",
+      "Next Action",
+      "Comments",
+      "Email Status"
+    ]
+  );
+}
+
+
+/* =========================================================
+   XLSX DOWNLOAD
+   ========================================================= */
+
+function rowsForExcel(rows){
+  return rows.map(r => {
+    const out = {};
+    Object.entries(r).forEach(([k,v]) => {
+      if(k.startsWith("__")) return;
+
+      if(v instanceof Date){
+        out[k] = v;
+      }else{
+        out[k] = v;
+      }
+    });
+    return out;
+  });
+}
+
+function createWorkbook(){
+  const wb = XLSX.utils.book_new();
+
+  const dashboardRows = [
+    ["C3A OVERDUE PO MONITOR"],
+    [],
+    ["Analysis Date",todayLocal()],
+    [],
+    ["OVERDUE LINES",dashboardStats.overdueLines],
+    ["UNIQUE OVERDUE POs",dashboardStats.uniqueOverduePos],
+    ["PENDING PIECES",dashboardStats.pendingPieces],
+    ["CRITICAL LINES",dashboardStats.criticalLines],
+    [],
+    ["Overdue Summary by Supplier"],
+    ["Vendor","Overdue Lines","Unique POs","Pending Qty"],
+    ...supplierSummaryRows.map(r => [
+      r.Vendor,
+      r["Overdue Lines"],
+      r["Unique POs"],
+      r["Pending Qty"]
+    ])
+  ];
+
+  const wsDashboard = XLSX.utils.aoa_to_sheet(dashboardRows);
+
+  const wsMonitor = XLSX.utils.json_to_sheet(
+    rowsForExcel(monitorRows)
+  );
+
+  const wsEmail = XLSX.utils.json_to_sheet(
+    rowsForExcel(emailQueueRows)
+  );
+
+  XLSX.utils.book_append_sheet(wb,wsDashboard,"Dashboard");
+  XLSX.utils.book_append_sheet(wb,wsMonitor,"PO Monitor");
+  XLSX.utils.book_append_sheet(wb,wsEmail,"Email Queue");
+
+  return wb;
+}
+
+
+/* =========================================================
+   EVENTS
+   ========================================================= */
+
+document.getElementById("generateBtn").addEventListener("click",async () => {
+  const sapFile = document.getElementById("sapFile").files[0];
+  const contactsFile = document.getElementById("contactsFile").files[0];
+  const msg = document.getElementById("processMessage");
+
+  if(!sapFile || !contactsFile){
+    msg.innerHTML = `
+      <div class="alert warning">
+        Select both the SAP PO report and Supplier Contacts file.
+      </div>
+    `;
+    return;
+  }
+
+  msg.innerHTML = `
+    <div class="alert warning">
+      Processing files...
+    </div>
+  `;
+
+  try{
+    const [sapRows,contactsRows] = await Promise.all([
+      readFileAsRows(sapFile),
+      readFileAsRows(contactsFile)
+    ]);
+
+    const contactsMap = loadContacts(contactsRows);
+
+    buildAnalysis(sapRows,contactsMap);
+    renderAll();
+
+    document.getElementById("resultsArea").classList.remove("hidden");
+
+    msg.innerHTML = `
+      <div class="alert success">
+        Overdue PO analysis generated successfully.
+      </div>
+    `;
+
+    document.getElementById("resultsArea")
+      .scrollIntoView({behavior:"smooth",block:"start"});
+
+  }catch(error){
+    console.error(error);
+
+    msg.innerHTML = `
+      <div class="alert error">
+        ${escapeHtml(error.message || error)}
+      </div>
+    `;
+  }
+});
+
+document.getElementById("downloadBtn").addEventListener("click",() => {
+  const wb = createWorkbook();
+  XLSX.writeFile(wb,"Overdue_PO_Report.xlsx");
+});
+
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click",() => {
+    document.querySelectorAll(".tab-btn").forEach(x => {
+      x.classList.remove("active");
+    });
+
+    btn.classList.add("active");
+
+    document.getElementById("monitorTab").classList.add("hidden");
+    document.getElementById("emailTab").classList.add("hidden");
+
+    document.getElementById(btn.dataset.tab).classList.remove("hidden");
+  });
+});
+
+</script>
+</body>
+</html>
