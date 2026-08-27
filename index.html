@@ -278,38 +278,42 @@
 
     <div class="how-grid">
       <div class="how-rule">
-        <strong>1. Upload Files</strong>
-        Upload both required files: the SAP ME2L report and the Supplier Contacts file.
-        The tool matches supplier contacts by vendor number.
+        <strong>1. Upload ME2M</strong>
+        Upload the SAP ME2M report with the purchase order lines to be reviewed.
       </div>
 
       <div class="how-rule">
-        <strong>2. Open PO lines</strong>
+        <strong>2. Upload Supplier Contacts</strong>
+        Upload the supplier contact file. The tool matches contacts by vendor number.
+      </div>
+
+      <div class="how-rule">
+        <strong>3. Open PO lines</strong>
         Only PO lines with a Pending Qty greater than 0 are kept in the PO Monitor.
       </div>
 
       <div class="how-rule">
-        <strong>3. Overdue rule</strong>
+        <strong>4. Overdue rule</strong>
         A line is Overdue when the Delivery Date is earlier than today and there is still a pending quantity.
       </div>
 
       <div class="how-rule">
-        <strong>4. Priority</strong>
+        <strong>5. Priority</strong>
         Critical: more than 30 days overdue. High: more than 7 days overdue. Medium: 1–7 days overdue.
       </div>
 
       <div class="how-rule">
-        <strong>5. Supplier follow-up</strong>
+        <strong>6. Supplier follow-up</strong>
         Overdue lines are summarized by supplier and the Email Queue identifies whether the supplier contact is ready or missing.
       </div>
 
       <div class="how-rule">
-        <strong>6. Recommended action</strong>
+        <strong>7. Recommended action</strong>
         The tool suggests the next action based on overdue days, pending quantity and delivery-date status.
       </div>
 
       <div class="how-rule">
-        <strong>7. Final output</strong>
+        <strong>8. Final output</strong>
         Download the Excel report with Dashboard, PO Monitor and Email Queue tabs for standardized follow-up.
       </div>
     </div>
@@ -320,13 +324,13 @@
     <h2>Upload Files</h2>
 
     <p class="muted">
-      File names do not matter. Select the ME2L report and the supplier contact file.
+      File names do not matter. Select the ME2M report and the supplier contact file.
       Supported formats: XLSX, XLS and CSV.
     </p>
 
     <div class="upload-grid">
       <div class="upload-box">
-        <strong>ME2L.XLSX</strong>
+        <strong>ME2M.XLSX</strong>
         <input id="sapFile" type="file" accept=".xlsx,.xls,.csv" />
       </div>
 
@@ -1108,38 +1112,108 @@ function rowsForExcel(rows){
 function createWorkbook(){
   const wb = XLSX.utils.book_new();
 
-  const dashboardRows = [
-    ["C3A OVERDUE PO MONITOR"],
-    [],
-    ["Analysis Date",todayLocal()],
-    [],
-    ["OVERDUE LINES",dashboardStats.overdueLines],
-    ["UNIQUE OVERDUE POs",dashboardStats.uniqueOverduePos],
-    ["PENDING PIECES",dashboardStats.pendingPieces],
-    ["CRITICAL LINES",dashboardStats.criticalLines],
-    [],
-    ["Overdue Summary by Supplier"],
-    ["Vendor","Overdue Lines","Unique POs","Pending Qty"],
-    ...supplierSummaryRows.map(r => [
-      r.Vendor,
-      r["Overdue Lines"],
-      r["Unique POs"],
-      r["Pending Qty"]
-    ])
+  /*
+    LOG OUTPUT ONLY:
+    Keep a single sheet in the downloaded file because this is
+    the sheet used by the Email Bot.
+    Do not change the dashboard/analysis shown in the web page.
+  */
+  const emailHeaders = [
+    "Send?",
+    "Vendor",
+    "Vendor Name",
+    "Contact Name",
+    "Email",
+    "CC",
+    "Purchasing Document",
+    "Item",
+    "Material",
+    "Short Text",
+    "Order Quantity",
+    "Delivered Qty",
+    "Pending Qty",
+    "Delivery Date",
+    "Days Overdue",
+    "Priority",
+    "Next Action",
+    "Comments",
+    "Email Status"
   ];
 
-  const wsDashboard = XLSX.utils.aoa_to_sheet(dashboardRows);
-
-  const wsMonitor = XLSX.utils.json_to_sheet(
-    rowsForExcel(monitorRows)
-  );
+  const emailExport = emailQueueRows.map(r => ({
+    "Send?": r["Send?"],
+    "Vendor": r["Vendor"],
+    "Vendor Name": r["Vendor Name"],
+    "Contact Name": r["Contact Name"],
+    "Email": r["Email"],
+    "CC": r["CC"],
+    "Purchasing Document": r["Purchasing Document"],
+    "Item": r["Item"],
+    "Material": r["Material"],
+    "Short Text": r["Short Text"],
+    "Order Quantity": r["Order Quantity"],
+    "Delivered Qty": r["Delivered Qty"],
+    "Pending Qty": r["Pending Qty"],
+    "Delivery Date": r["Delivery Date"],
+    "Days Overdue": r["Days Overdue"],
+    "Priority": r["Priority"],
+    "Next Action": r["Next Action"],
+    "Comments": r["Comments"],
+    "Email Status": r["Email Status"]
+  }));
 
   const wsEmail = XLSX.utils.json_to_sheet(
-    rowsForExcel(emailQueueRows)
+    emailExport,
+    { header: emailHeaders }
   );
 
-  XLSX.utils.book_append_sheet(wb,wsDashboard,"Dashboard");
-  XLSX.utils.book_append_sheet(wb,wsMonitor,"PO Monitor");
+  /* Make the log easy to use directly with the Email Bot */
+  wsEmail["!cols"] = [
+    {wch:10},  // Send?
+    {wch:14},  // Vendor
+    {wch:32},  // Vendor Name
+    {wch:22},  // Contact Name
+    {wch:30},  // Email
+    {wch:30},  // CC
+    {wch:20},  // Purchasing Document
+    {wch:10},  // Item
+    {wch:16},  // Material
+    {wch:38},  // Short Text
+    {wch:16},  // Order Quantity
+    {wch:16},  // Delivered Qty
+    {wch:16},  // Pending Qty
+    {wch:16},  // Delivery Date
+    {wch:14},  // Days Overdue
+    {wch:12},  // Priority
+    {wch:32},  // Next Action
+    {wch:32},  // Comments
+    {wch:18}   // Email Status
+  ];
+
+  if(wsEmail["!ref"]){
+    wsEmail["!autofilter"] = { ref: wsEmail["!ref"] };
+  }
+
+  /* Keep numeric fields numeric and dates as dates */
+  for(let rowNumber = 2; rowNumber <= emailExport.length + 1; rowNumber++){
+    ["B","G","H","K","L","M","O"].forEach(col => {
+      const cell = wsEmail[`${col}${rowNumber}`];
+      if(cell && cell.v !== "" && cell.v !== null && cell.v !== undefined){
+        const numericValue = Number(cell.v);
+        if(Number.isFinite(numericValue)){
+          cell.t = "n";
+          cell.v = numericValue;
+        }
+      }
+    });
+
+    const dateCell = wsEmail[`N${rowNumber}`];
+    if(dateCell && dateCell.v instanceof Date){
+      dateCell.t = "d";
+      dateCell.z = "dd/mm/yyyy";
+    }
+  }
+
   XLSX.utils.book_append_sheet(wb,wsEmail,"Email Queue");
 
   return wb;
@@ -1158,7 +1232,7 @@ document.getElementById("generateBtn").addEventListener("click",async () => {
   if(!sapFile || !contactsFile){
     msg.innerHTML = `
       <div class="alert warning">
-        Select both the ME2L report and Supplier Contacts file.
+        Select both the ME2M report and Supplier Contacts file.
       </div>
     `;
     return;
