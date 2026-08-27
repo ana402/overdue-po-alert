@@ -278,42 +278,38 @@
 
     <div class="how-grid">
       <div class="how-rule">
-        <strong>1. Upload ME2L</strong>
-        Upload the SAP ME2L report with the purchase order lines to be reviewed.
+        <strong>1. Upload Files</strong>
+        Upload both required files: the SAP ME2L report and the Supplier Contacts file.
+        The tool matches supplier contacts by vendor number.
       </div>
 
       <div class="how-rule">
-        <strong>2. Upload Supplier Contacts</strong>
-        Upload the supplier contact file. The tool matches contacts by vendor number.
-      </div>
-
-      <div class="how-rule">
-        <strong>3. Open PO lines</strong>
+        <strong>2. Open PO lines</strong>
         Only PO lines with a Pending Qty greater than 0 are kept in the PO Monitor.
       </div>
 
       <div class="how-rule">
-        <strong>4. Overdue rule</strong>
+        <strong>3. Overdue rule</strong>
         A line is Overdue when the Delivery Date is earlier than today and there is still a pending quantity.
       </div>
 
       <div class="how-rule">
-        <strong>5. Priority</strong>
+        <strong>4. Priority</strong>
         Critical: more than 30 days overdue. High: more than 7 days overdue. Medium: 1–7 days overdue.
       </div>
 
       <div class="how-rule">
-        <strong>6. Supplier follow-up</strong>
+        <strong>5. Supplier follow-up</strong>
         Overdue lines are summarized by supplier and the Email Queue identifies whether the supplier contact is ready or missing.
       </div>
 
       <div class="how-rule">
-        <strong>7. Recommended action</strong>
+        <strong>6. Recommended action</strong>
         The tool suggests the next action based on overdue days, pending quantity and delivery-date status.
       </div>
 
       <div class="how-rule">
-        <strong>8. Final output</strong>
+        <strong>7. Final output</strong>
         Download the Excel report with Dashboard, PO Monitor and Email Queue tabs for standardized follow-up.
       </div>
     </div>
